@@ -152,17 +152,44 @@ const AdminDashboard = () => {
     }
 
     try {
-      const { error } = await supabase
+      // Check if username already exists
+      const { data: existingDoctor } = await supabase
         .from('doctors')
-        .insert([doctorForm]);
+        .select('username')
+        .eq('username', doctorForm.username)
+        .single();
 
-      if (error) throw error;
+      if (existingDoctor) {
+        toast({
+          title: "Error",
+          description: "Username already exists. Please choose a different username.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('doctors')
+        .insert([{
+          name: doctorForm.name.trim(),
+          degree: doctorForm.degree.trim(),
+          experience: doctorForm.experience.trim(),
+          username: doctorForm.username.trim().toLowerCase(),
+          password: doctorForm.password,
+          doctor_type: doctorForm.doctor_type
+        }]);
+
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
 
       toast({
         title: "Success",
         description: "Doctor added successfully",
       });
 
+      // Reset form
       setDoctorForm({
         name: '',
         degree: '',
@@ -172,11 +199,12 @@ const AdminDashboard = () => {
         doctor_type: 'General'
       });
       setShowDoctorDialog(false);
-      fetchDoctors();
+      await fetchDoctors();
     } catch (error: any) {
+      console.error('Error adding doctor:', error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to add doctor. Please try again.",
         variant: "destructive"
       });
     }
