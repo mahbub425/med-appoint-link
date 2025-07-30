@@ -35,7 +35,7 @@ interface DoctorSchedule {
 interface Profile {
   name: string;
   pin: string;
-  concern: string;
+  concern: 'OG' | 'OPL' | 'Udvash-Unmesh' | 'Rokomari' | 'Uttoron';
   phone: string;
 }
 
@@ -247,7 +247,7 @@ const BookAppointment = () => {
         serial_number: serialNumber,
         scheduled_time: scheduledTime,
         appointment_date: schedule.availability_date,
-        status: 'scheduled'
+        status: 'scheduled' as 'scheduled' | 'completed' | 'absent' | 'cancelled'
       };
 
       const { data, error } = await supabase
