@@ -14,7 +14,245 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      appointments: {
+        Row: {
+          appointment_date: string
+          concern: Database["public"]["Enums"]["concern_type"]
+          created_at: string
+          doctor_id: string
+          doctor_schedule_id: string
+          id: string
+          name: string
+          phone: string
+          pin: string
+          reason: Database["public"]["Enums"]["reason_type"]
+          scheduled_time: string
+          serial_number: number
+          status: Database["public"]["Enums"]["appointment_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          appointment_date: string
+          concern: Database["public"]["Enums"]["concern_type"]
+          created_at?: string
+          doctor_id: string
+          doctor_schedule_id: string
+          id?: string
+          name: string
+          phone: string
+          pin: string
+          reason: Database["public"]["Enums"]["reason_type"]
+          scheduled_time: string
+          serial_number: number
+          status?: Database["public"]["Enums"]["appointment_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          appointment_date?: string
+          concern?: Database["public"]["Enums"]["concern_type"]
+          created_at?: string
+          doctor_id?: string
+          doctor_schedule_id?: string
+          id?: string
+          name?: string
+          phone?: string
+          pin?: string
+          reason?: Database["public"]["Enums"]["reason_type"]
+          scheduled_time?: string
+          serial_number?: number
+          status?: Database["public"]["Enums"]["appointment_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_doctor_schedule_id_fkey"
+            columns: ["doctor_schedule_id"]
+            isOneToOne: false
+            referencedRelation: "doctor_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consultations: {
+        Row: {
+          appointment_id: string
+          created_at: string
+          doctor_id: string
+          id: string
+          notes: string | null
+          prescription: string | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_id: string
+          created_at?: string
+          doctor_id: string
+          id?: string
+          notes?: string | null
+          prescription?: string | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string
+          created_at?: string
+          doctor_id?: string
+          id?: string
+          notes?: string | null
+          prescription?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultations_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultations_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doctor_schedules: {
+        Row: {
+          availability_date: string
+          break_end: string
+          break_start: string
+          created_at: string
+          doctor_id: string
+          end_time: string
+          id: string
+          max_appointments: number
+          start_time: string
+          updated_at: string
+        }
+        Insert: {
+          availability_date: string
+          break_end?: string
+          break_start?: string
+          created_at?: string
+          doctor_id: string
+          end_time?: string
+          id?: string
+          max_appointments?: number
+          start_time?: string
+          updated_at?: string
+        }
+        Update: {
+          availability_date?: string
+          break_end?: string
+          break_start?: string
+          created_at?: string
+          doctor_id?: string
+          end_time?: string
+          id?: string
+          max_appointments?: number
+          start_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_schedules_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doctors: {
+        Row: {
+          created_at: string
+          degree: string
+          doctor_type: Database["public"]["Enums"]["doctor_type"]
+          experience: string
+          id: string
+          name: string
+          password: string
+          profile_picture_url: string | null
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          degree: string
+          doctor_type?: Database["public"]["Enums"]["doctor_type"]
+          experience: string
+          id?: string
+          name: string
+          password: string
+          profile_picture_url?: string | null
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          degree?: string
+          doctor_type?: Database["public"]["Enums"]["doctor_type"]
+          experience?: string
+          id?: string
+          name?: string
+          password?: string
+          profile_picture_url?: string | null
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          concern: Database["public"]["Enums"]["concern_type"]
+          created_at: string
+          id: string
+          medical_history: string | null
+          name: string
+          phone: string
+          pin: string
+          profile_picture_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          concern: Database["public"]["Enums"]["concern_type"]
+          created_at?: string
+          id?: string
+          medical_history?: string | null
+          name: string
+          phone: string
+          pin: string
+          profile_picture_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          concern?: Database["public"]["Enums"]["concern_type"]
+          created_at?: string
+          id?: string
+          medical_history?: string | null
+          name?: string
+          phone?: string
+          pin?: string
+          profile_picture_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +261,10 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      appointment_status: "scheduled" | "completed" | "absent" | "cancelled"
+      concern_type: "OG" | "OPL" | "Udvash-Unmesh" | "Rokomari" | "Uttoron"
+      doctor_type: "Homeopathy" | "General" | "Physiotherapist"
+      reason_type: "New Patient" | "Follow Up" | "Report Show"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +391,11 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      appointment_status: ["scheduled", "completed", "absent", "cancelled"],
+      concern_type: ["OG", "OPL", "Udvash-Unmesh", "Rokomari", "Uttoron"],
+      doctor_type: ["Homeopathy", "General", "Physiotherapist"],
+      reason_type: ["New Patient", "Follow Up", "Report Show"],
+    },
   },
 } as const
