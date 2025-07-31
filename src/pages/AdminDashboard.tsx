@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,6 +52,7 @@ interface Appointment {
 }
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [schedules, setSchedules] = useState<DoctorSchedule[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -337,6 +339,15 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleSignOut = () => {
+    localStorage.removeItem('adminSession');
+    toast({
+      title: "Logged Out",
+      description: "You have been successfully logged out.",
+    });
+    navigate('/');
+  };
+
   const openDoctorDialog = (doctor?: Doctor) => {
     if (doctor) {
       setEditingDoctor(doctor);
@@ -377,9 +388,14 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="bg-card border-b">
-        <div className="container mx-auto px-4 py-4">
-          <h1 className="text-2xl font-bold">Super Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage doctors, schedules, and appointments</p>
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold">Super Admin Dashboard</h1>
+            <p className="text-muted-foreground">Manage doctors, schedules, and appointments</p>
+          </div>
+          <Button onClick={handleSignOut} variant="outline">
+            Logout
+          </Button>
         </div>
       </header>
 

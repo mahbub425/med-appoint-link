@@ -8,6 +8,9 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import UserDashboard from "./pages/UserDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminLogin from "./pages/AdminLogin";
+import DoctorLogin from "./pages/DoctorLogin";
+import DoctorDashboard from "./pages/DoctorDashboard";
 import BookAppointment from "./pages/BookAppointment";
 import NotFound from "./pages/NotFound";
 
@@ -30,8 +33,19 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 // Admin route - check for admin credentials
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  // For now, we'll just check if the URL contains admin
-  // In a real app, you'd validate against admin credentials
+  const adminSession = localStorage.getItem('adminSession');
+  if (!adminSession) {
+    return <Navigate to="/admin-login" />;
+  }
+  return <>{children}</>;
+};
+
+// Doctor route - check for doctor credentials
+const DoctorRoute = ({ children }: { children: React.ReactNode }) => {
+  const doctorSession = localStorage.getItem('doctorSession');
+  if (!doctorSession) {
+    return <Navigate to="/doctor" />;
+  }
   return <>{children}</>;
 };
 
@@ -40,9 +54,17 @@ const AppRoutes = () => {
   
   return (
     <Routes>
-      <Route path="/" element={user ? <UserDashboard /> : <Index />} />
+      <Route path="/" element={<Index />} />
+      <Route path="/dashboard" element={
+        <ProtectedRoute>
+          <UserDashboard />
+        </ProtectedRoute>
+      } />
       <Route path="/auth" element={<Auth />} />
+      <Route path="/admin-login" element={<AdminLogin />} />
       <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+      <Route path="/doctor" element={<DoctorLogin />} />
+      <Route path="/doctor-dashboard" element={<DoctorRoute><DoctorDashboard /></DoctorRoute>} />
       <Route path="/book-appointment/:doctorId" element={
         <ProtectedRoute>
           <BookAppointment />
