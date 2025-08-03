@@ -122,7 +122,7 @@ const BookAppointment = () => {
       .single();
 
     if (error) throw error;
-    setProfile(data);
+    setProfile(data as Profile);
   };
 
   const fetchAppointments = async () => {
