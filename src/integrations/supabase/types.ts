@@ -216,39 +216,30 @@ export type Database = {
       }
       profiles: {
         Row: {
-          concern: Database["public"]["Enums"]["concern_type"]
-          created_at: string
+          concern: string
+          created_at: string | null
           id: string
-          medical_history: string | null
           name: string
           phone: string
           pin: string
-          profile_picture_url: string | null
-          updated_at: string
           user_id: string
         }
         Insert: {
-          concern: Database["public"]["Enums"]["concern_type"]
-          created_at?: string
+          concern: string
+          created_at?: string | null
           id?: string
-          medical_history?: string | null
           name: string
           phone: string
           pin: string
-          profile_picture_url?: string | null
-          updated_at?: string
           user_id: string
         }
         Update: {
-          concern?: Database["public"]["Enums"]["concern_type"]
-          created_at?: string
+          concern?: string
+          created_at?: string | null
           id?: string
-          medical_history?: string | null
           name?: string
           phone?: string
           pin?: string
-          profile_picture_url?: string | null
-          updated_at?: string
           user_id?: string
         }
         Relationships: []

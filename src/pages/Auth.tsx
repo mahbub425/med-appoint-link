@@ -67,9 +67,9 @@ const Auth = () => {
     } else {
       toast({
         title: "Success",
-        description: "Account created successfully! Please check your email to verify your account.",
+        description: "Account created successfully!",
       });
-      navigate('/');
+      navigate('/dashboard');
     }
     setLoading(false);
   };
@@ -98,7 +98,7 @@ const Auth = () => {
         title: "Success",
         description: "Signed in successfully!",
       });
-      navigate('/');
+      navigate('/dashboard');
     }
     setLoading(false);
   };

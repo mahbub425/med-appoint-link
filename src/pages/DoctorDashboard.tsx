@@ -21,6 +21,9 @@ const DoctorDashboard = () => {
 
   useEffect(() => {
     checkDoctorSession();
+  }, []);
+
+  useEffect(() => {
     if (doctorSession) {
       fetchAppointments();
     }

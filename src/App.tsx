@@ -50,7 +50,21 @@ const DoctorRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppRoutes = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  
+  // Show loading while checking auth state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // If user is authenticated, redirect to dashboard on root path
+  if (user && window.location.pathname === '/') {
+    return <Routes><Route path="/" element={<Navigate to="/dashboard" replace />} /></Routes>;
+  }
   
   return (
     <Routes>
@@ -60,7 +74,7 @@ const AppRoutes = () => {
           <UserDashboard />
         </ProtectedRoute>
       } />
-      <Route path="/auth" element={<Auth />} />
+      <Route path="/auth" element={user ? <Navigate to="/dashboard" replace /> : <Auth />} />
       <Route path="/admin-login" element={<AdminLogin />} />
       <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       <Route path="/doctor" element={<DoctorLogin />} />
