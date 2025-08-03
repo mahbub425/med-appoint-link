@@ -71,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithPin = async (pin: string, password: string) => {
     try {
-      // Find user by PIN - using text comparison to ensure proper matching
+      // Find user by PIN - using exact string matching
       const { data: profiles, error: profileError } = await supabase
         .from('profiles')
         .select('user_id')
@@ -89,24 +89,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const profile = profiles[0];
 
-      // Get user data from auth.users table using a direct query
-      const { data: userData, error: userError } = await supabase
-        .from('auth.users')
-        .select('email')
-        .eq('id', profile.user_id)
-        .single();
+      // Use the database function to get user email
+      const { data: emailData, error: emailError } = await supabase
+        .rpc('get_user_email', { user_uuid: profile.user_id });
       
-      if (userError) {
-        console.error('User query error:', userError);
-        // If direct query fails, try using RPC or alternative approach
-        return { error: { message: 'User not found' } };
-      }
-
-      if (!userData?.email) {
+      if (emailError || !emailData) {
+        console.error('Email query error:', emailError);
         return { error: { message: 'User email not found' } };
       }
 
-      return signIn(userData.email, password);
+      return signIn(emailData, password);
     } catch (error) {
       console.error('SignInWithPin error:', error);
       return { error: { message: 'Login failed. Please try again.' } };
