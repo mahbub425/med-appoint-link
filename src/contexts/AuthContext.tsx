@@ -98,7 +98,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error: { message: 'User email not found' } };
       }
 
-      return signIn(emailData, password);
+      // Cast emailData to string to ensure TypeScript understands the type
+      const userEmail = emailData as string;
+      return signIn(userEmail, password);
     } catch (error) {
       console.error('SignInWithPin error:', error);
       return { error: { message: 'Login failed. Please try again.' } };
