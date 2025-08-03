@@ -6,7 +6,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, metadata: any) => Promise<{ error: any }>;
+  signUp: (pin: string, password: string, metadata: any) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signInWithPin: (pin: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -47,15 +47,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, metadata: any) => {
-    const redirectUrl = `${window.location.origin}/`;
+  const signUp = async (pin: string, password: string, metadata: any) => {
+    // Generate a dummy email using PIN since Supabase requires email
+    const dummyEmail = `user_${pin}@dummy.local`;
     
     const { error } = await supabase.auth.signUp({
-      email,
+      email: dummyEmail,
       password,
       options: {
-        emailRedirectTo: redirectUrl,
-        data: metadata
+        emailRedirectTo: undefined, // No email confirmation
+        data: { ...metadata, pin }
       }
     });
     return { error };

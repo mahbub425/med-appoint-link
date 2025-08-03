@@ -17,7 +17,6 @@ const Auth = () => {
   // Sign Up Form State
   const [signUpData, setSignUpData] = useState({
     name: '',
-    email: '',
     pin: '',
     concern: '',
     phone: '',
@@ -41,7 +40,7 @@ const Auth = () => {
       return;
     }
 
-    if (!signUpData.name || !signUpData.email || !signUpData.pin || !signUpData.concern || !signUpData.phone || !signUpData.password) {
+    if (!signUpData.name || !signUpData.pin || !signUpData.concern || !signUpData.phone || !signUpData.password) {
       toast({
         title: "Error",
         description: "All fields are required",
@@ -51,7 +50,7 @@ const Auth = () => {
     }
 
     setLoading(true);
-    const { error } = await signUp(signUpData.email, signUpData.password, {
+    const { error } = await signUp(signUpData.pin, signUpData.password, {
       name: signUpData.name,
       pin: signUpData.pin,
       concern: signUpData.concern,
@@ -158,17 +157,6 @@ const Auth = () => {
                   placeholder="Enter your full name"
                   value={signUpData.name}
                   onChange={(e) => setSignUpData({ ...signUpData, name: e.target.value })}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="signup-email">Email</Label>
-                <Input
-                  id="signup-email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={signUpData.email}
-                  onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
                 />
               </div>
               
