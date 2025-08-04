@@ -16,7 +16,9 @@ const DoctorDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [doctorSession, setDoctorSession] = useState<DoctorSession | null>(null);
-  const [appointmentsCount, setAppointmentsCount] = useState(0);
+  const [todayAppointmentsCount, setTodayAppointmentsCount] = useState(0);
+  const [totalAppointmentsCount, setTotalAppointmentsCount] = useState(0);
+  const [profileStatus, setProfileStatus] = useState<'Active' | 'Inactive'>('Active');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,7 +27,7 @@ const DoctorDashboard = () => {
 
   useEffect(() => {
     if (doctorSession) {
-      fetchAppointments();
+      fetchDashboardData();
     }
   }, [doctorSession]);
 
@@ -40,22 +42,45 @@ const DoctorDashboard = () => {
     setLoading(false);
   };
 
-  const fetchAppointments = async () => {
+  const fetchDashboardData = async () => {
     if (!doctorSession) return;
 
     try {
       const today = new Date().toISOString().split('T')[0];
-      const { data, error } = await supabase
+      
+      // Fetch today's appointments
+      const { data: todayData, error: todayError } = await supabase
         .from('appointments')
         .select('*')
         .eq('doctor_id', doctorSession.id)
         .eq('appointment_date', today)
         .eq('status', 'scheduled');
 
-      if (error) throw error;
-      setAppointmentsCount(data?.length || 0);
+      if (todayError) throw todayError;
+      setTodayAppointmentsCount(todayData?.length || 0);
+
+      // Fetch total appointments
+      const { data: totalData, error: totalError } = await supabase
+        .from('appointments')
+        .select('*', { count: 'exact', head: true })
+        .eq('doctor_id', doctorSession.id);
+
+      if (totalError) throw totalError;
+      setTotalAppointmentsCount(totalData?.length || 0);
+
+      // Fetch doctor profile status
+      const { data: doctorData, error: doctorError } = await supabase
+        .from('doctors')
+        .select('*')
+        .eq('id', doctorSession.id)
+        .single();
+
+      if (doctorError) throw doctorError;
+      // Assuming doctors are active by default - can be enhanced with status field
+      setProfileStatus('Active');
+
     } catch (error) {
-      console.error('Error fetching appointments:', error);
+      console.error('Error fetching dashboard data:', error);
     }
   };
 
@@ -115,23 +140,29 @@ const DoctorDashboard = () => {
           </p>
         </div>
 
-        {/* Quick Stats */}
+        {/* Dashboard Cards as per FRS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Today's Appointments</CardTitle>
+              <CardTitle className="text-lg">Total Appointments</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-primary">{appointmentsCount}</p>
+              <p className="text-3xl font-bold text-primary">{totalAppointmentsCount}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Total appointments booked to date
+              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Upcoming Appointments</CardTitle>
+              <CardTitle className="text-lg">Today's Appointments</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-primary">{appointmentsCount}</p>
+              <p className="text-3xl font-bold text-primary">{todayAppointmentsCount}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Appointments for {new Date().toLocaleDateString()}
+              </p>
             </CardContent>
           </Card>
 
@@ -140,7 +171,18 @@ const DoctorDashboard = () => {
               <CardTitle className="text-lg">Profile Status</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-lg font-medium text-green-600">Active</p>
+              <div className="flex items-center gap-2">
+                <span className={`px-2 py-1 rounded-full text-sm font-medium ${
+                  profileStatus === 'Active' 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {profileStatus}
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">
+                Current profile status
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -155,7 +197,7 @@ const DoctorDashboard = () => {
               <p className="text-sm text-muted-foreground mb-4">
                 View and edit your professional details
               </p>
-              <Button className="w-full" variant="default">
+              <Button className="w-full" variant="default" onClick={() => navigate('/doctor-profile-management')}>
                 Manage Profile
               </Button>
             </CardContent>
@@ -169,7 +211,7 @@ const DoctorDashboard = () => {
               <p className="text-sm text-muted-foreground mb-4">
                 View your availability and schedule
               </p>
-              <Button className="w-full" variant="default">
+              <Button className="w-full" variant="default" onClick={() => navigate('/doctor-schedule-viewing')}>
                 View Schedule
               </Button>
             </CardContent>
@@ -183,7 +225,7 @@ const DoctorDashboard = () => {
               <p className="text-sm text-muted-foreground mb-4">
                 Manage patient appointments
               </p>
-              <Button className="w-full" variant="default">
+              <Button className="w-full" variant="default" onClick={() => navigate('/doctor-appointment-management')}>
                 Manage Appointments
               </Button>
             </CardContent>

@@ -12,6 +12,10 @@ import AdminLogin from "./pages/AdminLogin";
 import DoctorLogin from "./pages/DoctorLogin";
 import DoctorDashboard from "./pages/DoctorDashboard";
 import BookAppointment from "./pages/BookAppointment";
+import DoctorProfile from "./pages/DoctorProfile";
+import DoctorProfileManagement from "./pages/DoctorProfileManagement";
+import DoctorScheduleViewing from "./pages/DoctorScheduleViewing";
+import DoctorAppointmentManagement from "./pages/DoctorAppointmentManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -84,6 +88,14 @@ const AppRoutes = () => {
           <BookAppointment />
         </ProtectedRoute>
       } />
+      <Route path="/doctor-profile/:doctorId" element={
+        <ProtectedRoute>
+          <DoctorProfile />
+        </ProtectedRoute>
+      } />
+      <Route path="/doctor-profile-management" element={<DoctorRoute><DoctorProfileManagement /></DoctorRoute>} />
+      <Route path="/doctor-schedule-viewing" element={<DoctorRoute><DoctorScheduleViewing /></DoctorRoute>} />
+      <Route path="/doctor-appointment-management" element={<DoctorRoute><DoctorAppointmentManagement /></DoctorRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

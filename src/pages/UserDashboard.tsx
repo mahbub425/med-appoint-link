@@ -203,10 +203,10 @@ const UserDashboard = () => {
                           <span>Max Appointments: {schedule.max_appointments}</span>
                         </div>
                         <Button className="w-full" onClick={() => {
-                          // Navigate to appointment booking
-                          window.location.href = `/book-appointment/${doctor.id}`;
+                          // Navigate to doctor profile view
+                          window.location.href = `/doctor-profile/${doctor.id}`;
                         }}>
-                          Book Appointment
+                          View Profile
                         </Button>
                       </div>
                     ) : (
