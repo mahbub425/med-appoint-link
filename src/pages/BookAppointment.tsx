@@ -1,279 +1,235 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Calendar, Clock, User, ArrowLeft, CheckCircle } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, MapPin, Calendar, Clock, Users } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 interface Doctor {
   id: string;
   name: string;
   degree: string;
   experience: string;
-  doctor_type: 'General' | 'Homeopathy' | 'Physiotherapist';
+  designation: string;
+  specialties: string[];
 }
 
 interface DoctorSchedule {
   id: string;
-  doctor_id: string;
   availability_date: string;
   start_time: string;
   break_start: string;
   break_end: string;
   end_time: string;
   max_appointments: number;
-}
-
-interface Profile {
-  name: string;
-  pin: string;
-  concern: 'OG' | 'OPL' | 'Udvash-Unmesh' | 'Rokomari' | 'Uttoron';
-  phone: string;
+  location: string;
 }
 
 interface Appointment {
   id: string;
-  name: string;
-  concern: string;
-  reason: string;
   serial_number: number;
-  scheduled_time: string;
-  status: string;
+  reason: string;
+  appointment_time: string;
+  user_id: string;
 }
 
-const BookAppointment = () => {
+export default function BookAppointment() {
   const { doctorId } = useParams<{ doctorId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { userProfile } = useAuth();
   
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [schedule, setSchedule] = useState<DoctorSchedule | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [selectedReason, setSelectedReason] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [bookedAppointment, setBookedAppointment] = useState<any>(null);
-
-  // Form state
-  const [formData, setFormData] = useState({
-    reason: '' as 'New Patient' | 'Follow Up' | 'Report Show' | ''
-  });
 
   useEffect(() => {
-    if (doctorId && user) {
-      fetchData();
+    if (doctorId && userProfile) {
+      fetchDoctorData();
     }
-  }, [doctorId, user]);
+  }, [doctorId, userProfile]);
 
-  const fetchData = async () => {
+  const fetchDoctorData = async () => {
+    if (!doctorId) return;
+
     try {
-      await Promise.all([
-        fetchDoctor(),
-        fetchSchedule(),
-        fetchProfile(),
-        fetchAppointments()
-      ]);
+      // Fetch doctor details
+      const { data: doctorData, error: doctorError } = await supabase
+        .from("doctors")
+        .select("*")
+        .eq("id", doctorId)
+        .single();
+
+      if (doctorError || !doctorData) {
+        toast({
+          title: "Error",
+          description: "Doctor not found",
+          variant: "destructive"
+        });
+        navigate("/user");
+        return;
+      }
+
+      setDoctor(doctorData);
+
+      // Fetch doctor's next availability
+      const { data: scheduleData, error: scheduleError } = await supabase
+        .from("doctor_schedules")
+        .select("*")
+        .eq("doctor_id", doctorId)
+        .gte("availability_date", new Date().toISOString().split('T')[0])
+        .order("availability_date", { ascending: true })
+        .limit(1)
+        .single();
+
+      if (scheduleError || !scheduleData) {
+        setSchedule(null);
+        setLoading(false);
+        return;
+      }
+
+      setSchedule(scheduleData);
+
+      // Fetch existing appointments for this date
+      const { data: appointmentsData, error: appointmentsError } = await supabase
+        .from("appointments")
+        .select("*")
+        .eq("doctor_id", doctorId)
+        .eq("appointment_date", scheduleData.availability_date)
+        .order("serial_number", { ascending: true });
+
+      if (appointmentsError) {
+        console.error("Error fetching appointments:", appointmentsError);
+      } else {
+        setAppointments(appointmentsData || []);
+      }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching doctor data:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchDoctor = async () => {
-    const { data, error } = await supabase
-      .from('doctors')
-      .select('*')
-      .eq('id', doctorId)
-      .single();
+  const calculateAppointmentTime = (serialNumber: number, reason: string) => {
+    if (!schedule) return "";
 
-    if (error) throw error;
-    setDoctor(data);
-  };
+    const durations: { [key: string]: number } = {
+      "New Patient": 10,
+      "Follow Up": 7,
+      "Report Show": 12
+    };
 
-  const fetchSchedule = async () => {
-    const { data, error } = await supabase
-      .from('doctor_schedules')
-      .select('*')
-      .eq('doctor_id', doctorId)
-      .gte('availability_date', new Date().toISOString().split('T')[0])
-      .order('availability_date')
-      .limit(1)
-      .maybeSingle();
-
-    if (error) throw error;
-    setSchedule(data);
-  };
-
-  const fetchProfile = async () => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('name, pin, concern, phone')
-      .eq('user_id', user?.id)
-      .single();
-
-    if (error) throw error;
-    setProfile(data as any);
-  };
-
-  const fetchAppointments = async () => {
-    if (!schedule) return;
-
-    const { data, error } = await supabase
-      .from('appointments')
-      .select('*')
-      .eq('doctor_id', doctorId)
-      .eq('appointment_date', schedule.availability_date)
-      .eq('status', 'scheduled')
-      .order('serial_number');
-
-    if (error) throw error;
-    setAppointments(data || []);
-  };
-
-  const calculateNextSerial = () => {
-    if (!appointments.length) return 1;
-    return Math.max(...appointments.map(a => a.serial_number)) + 1;
-  };
-
-  const calculateAppointmentTime = (serialNumber: number) => {
-    if (!schedule || !doctor) return '';
-
-    const startTime = new Date(`2000-01-01T${schedule.start_time}`);
+    let currentTime = new Date(`2000-01-01T${schedule.start_time}`);
     const breakStart = new Date(`2000-01-01T${schedule.break_start}`);
     const breakEnd = new Date(`2000-01-01T${schedule.break_end}`);
-    
-    let currentTime = new Date(startTime);
-    let currentSerial = 1;
 
-    while (currentSerial < serialNumber) {
-      // Determine appointment duration based on doctor type and reason
-      let duration = 10; // Default for General/Homeopathy new patient
-      
-      if (doctor.doctor_type === 'Physiotherapist') {
-        duration = 25;
-      } else {
-        // Find the appointment to get its reason
-        const appointment = appointments.find(a => a.serial_number === currentSerial);
-        if (appointment) {
-          switch (appointment.reason) {
-            case 'New Patient': duration = 10; break;
-            case 'Follow Up': duration = 7; break;
-            case 'Report Show': duration = 12; break;
-          }
+    // Calculate time for appointments before this one
+    for (let i = 1; i < serialNumber; i++) {
+      const appointment = appointments.find(apt => apt.serial_number === i);
+      if (appointment) {
+        const duration = durations[appointment.reason] || 10;
+        currentTime.setMinutes(currentTime.getMinutes() + duration);
+
+        // Skip break time
+        if (currentTime >= breakStart && currentTime < breakEnd) {
+          currentTime = new Date(breakEnd);
         }
       }
-
-      currentTime.setMinutes(currentTime.getMinutes() + duration);
-
-      // Skip break time
-      if (currentTime >= breakStart && currentTime < breakEnd) {
-        currentTime = new Date(breakEnd);
-      }
-
-      currentSerial++;
     }
 
     return currentTime.toTimeString().slice(0, 5);
   };
 
-  const getCurrentSerial = () => {
-    if (!schedule || !appointments.length) return 1;
-
-    const now = new Date();
-    const today = new Date().toISOString().split('T')[0];
-    
-    if (schedule.availability_date !== today) return 1;
-
-    const currentTime = now.toTimeString().slice(0, 5);
-    
-    // Find the current appointment based on time
-    for (const appointment of appointments) {
-      const appointmentTime = appointment.scheduled_time;
-      if (currentTime <= appointmentTime) {
-        return appointment.serial_number;
-      }
-    }
-
-    return appointments.length + 1;
-  };
-
-  const canBookAppointment = () => {
-    if (!schedule) return false;
-    if (!profile) return false;
-    
-    // Check if already booked for this doctor today
-    const hasExistingBooking = appointments.some(a => a.name === profile.name);
-    if (hasExistingBooking) return false;
-
-    // Check if max appointments reached
-    return appointments.length < schedule.max_appointments;
-  };
-
   const handleBookAppointment = async () => {
-    if (!profile || !doctor || !schedule || !formData.reason) {
+    if (!userProfile || !doctor || !schedule || !selectedReason) {
       toast({
         title: "Error",
-        description: "All fields are required",
+        description: "Please select a reason for your appointment",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check if user already has an appointment with this doctor on this date
+    const existingAppointment = appointments.find(apt => apt.user_id === userProfile.id);
+    if (existingAppointment) {
+      toast({
+        title: "Error",
+        description: "You can only book one appointment per doctor per day",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check if max appointments reached
+    if (appointments.length >= schedule.max_appointments) {
+      toast({
+        title: "Error",
+        description: "Maximum appointments for this date have been reached",
         variant: "destructive"
       });
       return;
     }
 
     setBooking(true);
-    
-    try {
-      const serialNumber = calculateNextSerial();
-      const scheduledTime = calculateAppointmentTime(serialNumber);
 
-      const appointmentData = {
-        user_id: user?.id,
-        doctor_id: doctorId,
-        doctor_schedule_id: schedule.id,
-        name: profile.name,
-        pin: profile.pin,
-        concern: profile.concern,
-        reason: formData.reason,
-        phone: profile.phone,
-        serial_number: serialNumber,
-        scheduled_time: scheduledTime,
-        appointment_date: schedule.availability_date,
-        status: 'scheduled' as 'scheduled' | 'completed' | 'absent' | 'cancelled'
-      };
+    try {
+      const nextSerial = appointments.length + 1;
+      const appointmentTime = calculateAppointmentTime(nextSerial, selectedReason);
 
       const { data, error } = await supabase
-        .from('appointments')
-        .insert([appointmentData])
+        .from("appointments")
+        .insert({
+          user_id: userProfile.id,
+          doctor_id: doctor.id,
+          name: userProfile.name,
+          pin: parseInt(userProfile.pin),
+          concern: userProfile.concern,
+          phone: userProfile.phone,
+          reason: selectedReason,
+          appointment_date: schedule.availability_date,
+          serial_number: nextSerial,
+          appointment_time: appointmentTime,
+          status: "upcoming"
+        })
         .select()
         .single();
 
-      if (error) throw error;
-
-      setBookedAppointment({
-        ...data,
-        doctor_name: doctor.name,
-        appointment_date: schedule.availability_date
-      });
-      setShowSuccess(true);
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to book appointment",
+          variant: "destructive"
+        });
+        return;
+      }
 
       toast({
         title: "Success",
-        description: "Appointment booked successfully!",
+        description: `Appointment booked successfully! Your appointment is scheduled for ${appointmentTime} on ${new Date(schedule.availability_date).toLocaleDateString('en-GB')}`
       });
 
-    } catch (error: any) {
+      // Navigate to appointment details page with appointment data
+      navigate("/appointment-details", {
+        state: {
+          appointmentData: {
+            ...data,
+            doctor_name: doctor.name,
+            location: schedule.location
+          }
+        }
+      });
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message,
+        description: "An unexpected error occurred",
         variant: "destructive"
       });
     } finally {
@@ -281,250 +237,186 @@ const BookAppointment = () => {
     }
   };
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-GB');
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-          <p className="mt-4 text-muted-foreground">Loading...</p>
-        </div>
+        <div className="text-lg">Loading...</div>
       </div>
     );
   }
 
-  if (showSuccess && bookedAppointment) {
+  if (!doctor) {
     return (
-      <div className="min-h-screen bg-background p-4">
-        <div className="container mx-auto max-w-2xl">
-          <div className="text-center mb-8">
-            <Button variant="outline" onClick={() => navigate('/')} className="mb-4">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
-          </div>
-
-          <Card className="text-center">
-            <CardHeader>
-              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                <CheckCircle className="h-8 w-8 text-green-600" />
-              </div>
-              <CardTitle className="text-2xl text-green-600">Appointment Booked Successfully!</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-muted p-4 rounded-lg space-y-2">
-                <p><strong>Appointment Date:</strong> {new Date(bookedAppointment.appointment_date).toLocaleDateString()}</p>
-                <p><strong>Time:</strong> {bookedAppointment.scheduled_time}</p>
-                <p><strong>Doctor:</strong> {bookedAppointment.doctor_name}</p>
-                <p><strong>Name:</strong> {bookedAppointment.name}</p>
-                <p><strong>Serial Number:</strong> {bookedAppointment.serial_number}</p>
-                <p><strong>Concern:</strong> {bookedAppointment.concern}</p>
-                <p><strong>Reason:</strong> {bookedAppointment.reason}</p>
-              </div>
-              
-              <Button onClick={() => navigate('/')} className="w-full">
-                Return to Dashboard
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  if (!doctor || !schedule) {
-    return (
-      <div className="min-h-screen bg-background p-4">
-        <div className="container mx-auto max-w-2xl text-center">
-          <Button variant="outline" onClick={() => navigate('/')} className="mb-8">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-          
-          <Card>
-            <CardContent className="py-8">
-              <p className="text-muted-foreground">
-                এই সপ্তাহের জন্য এখনো ডাক্তারের আসার তারিখ নির্ধারণ করা হয়নি। অনুগ্রহ করে পরবর্তীতে চেষ্টা করুন।
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Doctor not found</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="container mx-auto max-w-4xl">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <Button variant="outline" onClick={() => navigate('/')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <div>
+    <div className="min-h-screen bg-background">
+      <header className="bg-background border-b border-border">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/user")}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Dashboard
+            </Button>
             <h1 className="text-2xl font-bold">Book Appointment</h1>
-            <p className="text-muted-foreground">Dr. {doctor.name}</p>
           </div>
         </div>
+      </header>
 
+      <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Doctor Info & Booking Form */}
-          <div className="space-y-6">
-            {/* Doctor Profile */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>{doctor.name}</span>
-                  <Badge variant="outline">{doctor.doctor_type}</Badge>
-                </CardTitle>
-                <CardDescription>
-                  <p className="font-medium">{doctor.degree}</p>
-                  <p className="text-sm">Experience: {doctor.experience}</p>
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="h-4 w-4 text-primary" />
-                    <span>Available: {new Date(schedule.availability_date).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Clock className="h-4 w-4 text-primary" />
-                    <span>{schedule.start_time} - {schedule.end_time}</span>
-                  </div>
+          {/* Doctor Details */}
+          <Card className="border-2 border-primary/20 bg-gradient-to-br from-card to-card/80">
+            <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5 border-b">
+              <CardTitle className="text-xl text-primary">Doctor Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6 p-6">
+              <div className="text-center space-y-2">
+                <h3 className="text-2xl font-bold text-primary">{doctor.name}</h3>
+                <p className="text-lg text-muted-foreground font-medium">{doctor.degree}</p>
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  <p>{doctor.designation}</p>
+                  <p>{doctor.experience}</p>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
 
-            {/* Booking Form */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Book Your Appointment</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {profile && (
-                  <>
-                    <div>
-                      <Label>Name</Label>
-                      <Input value={profile.name} disabled />
+              {schedule && (
+                <div className="space-y-4">
+                  {/* Next Availability */}
+                  <div className="bg-gradient-to-r from-green-100 to-green-50 dark:from-green-900/20 dark:to-green-800/10 p-4 rounded-lg border-l-4 border-green-500">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Calendar className="h-5 w-5 text-green-600" />
+                      <span className="font-bold text-lg text-green-700 dark:text-green-400">Next Availability</span>
                     </div>
-                    
-                    <div>
-                      <Label>PIN</Label>
-                      <Input value={profile.pin} disabled />
-                    </div>
-                    
-                    <div>
-                      <Label>Concern</Label>
-                      <Input value={profile.concern} disabled />
-                    </div>
-                    
-                    <div>
-                      <Label>Phone Number</Label>
-                      <Input value={profile.phone} disabled />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="reason">Reason *</Label>
-                      <Select value={formData.reason} onValueChange={(value) => setFormData({ ...formData, reason: value as any })}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select reason for visit" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="New Patient">New Patient</SelectItem>
-                          <SelectItem value="Follow Up">Follow Up</SelectItem>
-                          <SelectItem value="Report Show">Report Show</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    {canBookAppointment() ? (
-                      <Button 
-                        onClick={handleBookAppointment} 
-                        className="w-full"
-                        disabled={booking || !formData.reason}
-                      >
-                        {booking ? 'Booking...' : 'Book Appointment'}
-                      </Button>
-                    ) : (
-                      <div className="text-center p-4 bg-muted rounded-lg">
-                        <p className="text-sm text-muted-foreground">
-                          {appointments.length >= schedule.max_appointments 
-                            ? "Maximum appointments for this date have been reached."
-                            : "You have already booked an appointment with this doctor for this date."
-                          }
-                        </p>
+                    <div className="space-y-2">
+                      <p className="text-xl font-bold text-foreground">
+                        {formatDate(schedule.availability_date)}
+                      </p>
+                      <p className="text-lg font-semibold text-foreground">
+                        ({schedule.start_time} - {schedule.end_time})
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-orange-500" />
+                        <span className="text-sm font-medium text-orange-700 dark:text-orange-400">
+                          Break: {schedule.break_start} - {schedule.break_end}
+                        </span>
                       </div>
-                    )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-blue-500" />
+                        <span className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                          Available slots: {schedule.max_appointments - appointments.length}/{schedule.max_appointments}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
 
-          {/* Appointment List */}
-          <div>
-            <Card>
-              <CardHeader>
-                <CardTitle className="font-bold">Appointments List</CardTitle>
-                <CardDescription>
-                  Scheduled appointments for {new Date(schedule.availability_date).toLocaleDateString()}
-                </CardDescription>
-                <div className="flex justify-between items-center text-sm">
-                  <span>Booking Status: {appointments.length}/{schedule.max_appointments}</span>
-                  <span>Next Serial: {getCurrentSerial()}</span>
+                  {/* Location */}
+                  <div className="bg-gradient-to-r from-blue-100 to-blue-50 dark:from-blue-900/20 dark:to-blue-800/10 p-4 rounded-lg border-l-4 border-blue-500">
+                    <div className="flex items-center gap-2 mb-2">
+                      <MapPin className="h-5 w-5 text-blue-600" />
+                      <span className="font-bold text-lg text-blue-700 dark:text-blue-400">Location</span>
+                    </div>
+                    <p className="text-xl font-bold text-foreground">{schedule.location}</p>
+                  </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                {appointments.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Serial</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Concern</TableHead>
-                        <TableHead>Reason</TableHead>
-                        <TableHead>Time</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {appointments.map((appointment) => {
-                        const currentSerial = getCurrentSerial();
-                        const isCompleted = appointment.serial_number < currentSerial;
-                        const isCurrent = appointment.serial_number === currentSerial;
-                        
-                        return (
-                          <TableRow 
-                            key={appointment.id}
-                            className={cn(
-                              isCompleted && "bg-green-50",
-                              isCurrent && "bg-blue-50"
-                            )}
-                          >
-                            <TableCell>{appointment.serial_number}</TableCell>
-                            <TableCell>{appointment.name}</TableCell>
-                            <TableCell>
-                              <Badge variant="secondary">{appointment.concern}</Badge>
-                            </TableCell>
-                            <TableCell>{appointment.reason}</TableCell>
-                            <TableCell>{appointment.scheduled_time}</TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                ) : (
-                  <p className="text-center text-muted-foreground py-4">
-                    No appointments booked yet.
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Booking Form */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Book Your Appointment</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!schedule ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">
+                    এই সপ্তাহের জন্য এখনো ডাক্তারের আসার তারিখ নির্ধারণ করা হয়নি। অনুগ্রহ করে পরবর্তীতে চেষ্টা করুন।
                   </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                </div>
+              ) : appointments.length >= schedule.max_appointments ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">
+                    Maximum appointments for this date have been reached.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <Label className="text-sm font-medium">Name</Label>
+                    <p className="text-sm text-muted-foreground mt-1">{userProfile?.name}</p>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm font-medium">PIN</Label>
+                    <p className="text-sm text-muted-foreground mt-1">{userProfile?.pin}</p>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm font-medium">Concern</Label>
+                    <p className="text-sm text-muted-foreground mt-1">{userProfile?.concern}</p>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm font-medium">Phone Number</Label>
+                    <p className="text-sm text-muted-foreground mt-1">{userProfile?.phone}</p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="reason">Reason for Visit</Label>
+                    <Select value={selectedReason} onValueChange={setSelectedReason}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select reason" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="New Patient">New Patient</SelectItem>
+                        <SelectItem value="Follow Up">Follow Up</SelectItem>
+                        <SelectItem value="Report Show">Report Show</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                   {selectedReason && schedule && (
+                    <div className="bg-gradient-to-r from-green-100 to-green-50 dark:from-green-900/20 dark:to-green-800/10 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                      <h4 className="font-bold text-lg text-green-700 dark:text-green-400 mb-3">Appointment Details:</h4>
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Date: <span className="font-bold">{formatDate(schedule.availability_date)}</span></p>
+                        <p className="text-sm font-medium">
+                          Expected Time: <span className="font-bold">{calculateAppointmentTime(appointments.length + 1, selectedReason)}</span>
+                        </p>
+                        <p className="text-sm font-medium">Serial Number: <span className="font-bold">{appointments.length + 1}</span></p>
+                        <p className="text-sm font-medium">Doctor: <span className="font-bold">{doctor.name}</span></p>
+                        <p className="text-sm font-medium">Location: <span className="font-bold">{schedule.location}</span></p>
+                      </div>
+                    </div>
+                   )}
+
+                  <Button 
+                    onClick={handleBookAppointment}
+                    disabled={booking || !selectedReason}
+                    className="w-full"
+                  >
+                    {booking ? "Booking..." : "Book Appointment"}
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
   );
-};
-
-export default BookAppointment;
+}

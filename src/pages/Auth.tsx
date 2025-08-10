@@ -1,234 +1,221 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from '@/hooks/use-toast';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 
 const Auth = () => {
-  const { signUp, signIn, signInWithPin } = useAuth();
-  const navigate = useNavigate();
+  const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  // Sign Up Form State
-  const [signUpData, setSignUpData] = useState({
-    name: '',
-    pin: '',
-    concern: '',
-    phone: '',
-    password: '',
-    confirmPassword: ''
+  const [formData, setFormData] = useState({
+    name: "",
+    pin: "",
+    concern: "",
+    phone: ""
   });
 
-  // Sign In Form State
-  const [signInData, setSignInData] = useState({
-    pin: '',
-    password: ''
-  });
+  const { pinSignUp, pinSignIn, user } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSignUp = async () => {
-    if (signUpData.password !== signUpData.confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Passwords don't match",
-        variant: "destructive"
-      });
-      return;
+  useEffect(() => {
+    if (user) {
+      navigate("/");
     }
+  }, [user, navigate]);
 
-    if (!signUpData.name || !signUpData.pin || !signUpData.concern || !signUpData.phone || !signUpData.password) {
-      toast({
-        title: "Error",
-        description: "All fields are required",
-        variant: "destructive"
-      });
-      return;
+  const handleSubmit = async () => {
+    if (isSignUp) {
+      if (!formData.name || !formData.pin || !formData.concern || !formData.phone) {
+        toast({
+          title: "Error",
+          description: "All fields are required for registration",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Validate phone number format
+      const phoneRegex = /^[0-9]{11}$/;
+      if (!phoneRegex.test(formData.phone)) {
+        toast({
+          title: "Error",
+          description: "Please enter a valid 11-digit phone number",
+          variant: "destructive"
+        });
+        return;
+      }
+    } else {
+      if (!formData.pin) {
+        toast({
+          title: "Error",
+          description: "Employee PIN is required",
+          variant: "destructive"
+        });
+        return;
+      }
     }
 
     setLoading(true);
-    const { error } = await signUp(signUpData.pin, signUpData.password, {
-      name: signUpData.name,
-      pin: signUpData.pin,
-      concern: signUpData.concern,
-      phone: signUpData.phone
-    });
 
-    if (error) {
-      toast({
-        title: "Sign Up Error",
-        description: error.message,
-        variant: "destructive"
-      });
-    } else {
-      toast({
-        title: "Success",
-        description: "Account created successfully!",
-      });
-      navigate('/dashboard');
-    }
-    setLoading(false);
-  };
+    try {
+      if (isSignUp) {
+        const { error } = await pinSignUp({
+          name: formData.name,
+          pin: formData.pin,
+          concern: formData.concern,
+          phone: formData.phone
+        });
 
-  const handleSignIn = async () => {
-    if (!signInData.pin || !signInData.password) {
+        if (error) {
+          if (error.message.includes("PIN already exists")) {
+            toast({
+              title: "Error",
+              description: "PIN already exists. Please choose a different PIN.",
+              variant: "destructive"
+            });
+          } else {
+            toast({
+              title: "Error",
+              description: error.message,
+              variant: "destructive"
+            });
+          }
+        } else {
+          toast({
+            title: "Success",
+            description: "Account created successfully!"
+          });
+          setIsSignUp(false);
+        }
+      } else {
+        const { error } = await pinSignIn(formData.pin);
+
+        if (error) {
+          toast({
+            title: "Error",
+            description: "Invalid Employee PIN",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Success",
+            description: "Signed in successfully!"
+          });
+          navigate("/");
+        }
+      }
+    } catch (error) {
       toast({
         title: "Error",
-        description: "PIN and password are required",
+        description: "An unexpected error occurred",
         variant: "destructive"
       });
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(true);
-    const { error } = await signInWithPin(signInData.pin, signInData.password);
-
-    if (error) {
-      toast({
-        title: "Sign In Error",
-        description: error.message,
-        variant: "destructive"
-      });
-    } else {
-      toast({
-        title: "Success",
-        description: "Signed in successfully!",
-      });
-      navigate('/dashboard');
-    }
-    setLoading(false);
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Doctor Appointment System</CardTitle>
-          <CardDescription>Sign in to book appointments or create an account</CardDescription>
+          <CardTitle>{isSignUp ? "Sign Up" : "Sign In"}</CardTitle>
+          <CardDescription>
+            {isSignUp 
+              ? "Create a new account to book appointments" 
+              : "Sign in to your account"
+            }
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="signin" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="signin" className="space-y-4">
+        <CardContent className="space-y-4">
+          {isSignUp && (
+            <>
               <div className="space-y-2">
-                <Label htmlFor="signin-pin">PIN</Label>
+                <Label htmlFor="name">Name</Label>
                 <Input
-                  id="signin-pin"
-                  type="text"
-                  placeholder="Enter your PIN"
-                  value={signInData.pin}
-                  onChange={(e) => setSignInData({ ...signInData, pin: e.target.value })}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="signin-password">Password</Label>
-                <Input
-                  id="signin-password"
-                  type="password"
-                  placeholder="Enter your password"
-                  value={signInData.password}
-                  onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
-                />
-              </div>
-              
-              <Button 
-                onClick={handleSignIn} 
-                className="w-full" 
-                disabled={loading}
-              >
-                {loading ? 'Signing In...' : 'Sign In'}
-              </Button>
-            </TabsContent>
-            
-            <TabsContent value="signup" className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="signup-name">Name</Label>
-                <Input
-                  id="signup-name"
-                  type="text"
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Enter your full name"
-                  value={signUpData.name}
-                  onChange={(e) => setSignUpData({ ...signUpData, name: e.target.value })}
                 />
               </div>
-              
+
               <div className="space-y-2">
-                <Label htmlFor="signup-pin">PIN</Label>
+                <Label htmlFor="pin">Employee PIN</Label>
                 <Input
-                  id="signup-pin"
-                  type="text"
-                  placeholder="Create a unique PIN"
-                  value={signUpData.pin}
-                  onChange={(e) => setSignUpData({ ...signUpData, pin: e.target.value })}
+                  id="pin"
+                  value={formData.pin}
+                  onChange={(e) => setFormData(prev => ({ ...prev, pin: e.target.value }))}
+                  placeholder="Enter a unique Employee PIN"
                 />
               </div>
-              
+
               <div className="space-y-2">
-                <Label htmlFor="signup-concern">Concern</Label>
-                <Select value={signUpData.concern} onValueChange={(value) => setSignUpData({ ...signUpData, concern: value })}>
+                <Label htmlFor="concern">Concern</Label>
+                <Select onValueChange={(value) => setFormData(prev => ({ ...prev, concern: value }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select your concern" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="OG">OG</SelectItem>
                     <SelectItem value="OPL">OPL</SelectItem>
-                    <SelectItem value="Udvash-Unmesh">Udvash-Unmesh</SelectItem>
+                    <SelectItem value="OG">OG</SelectItem>
+                    <SelectItem value="Udvash">Udvash</SelectItem>
                     <SelectItem value="Rokomari">Rokomari</SelectItem>
+                    <SelectItem value="Unmesh">Unmesh</SelectItem>
                     <SelectItem value="Uttoron">Uttoron</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
-                <Label htmlFor="signup-phone">Phone</Label>
+                <Label htmlFor="phone">Phone Number</Label>
                 <Input
-                  id="signup-phone"
-                  type="tel"
-                  placeholder="Enter your phone number"
-                  value={signUpData.phone}
-                  onChange={(e) => setSignUpData({ ...signUpData, phone: e.target.value })}
+                  id="phone"
+                  value={formData.phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="Enter 11-digit phone number"
                 />
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="signup-password">Password</Label>
-                <Input
-                  id="signup-password"
-                  type="password"
-                  placeholder="Create a password"
-                  value={signUpData.password}
-                  onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="signup-confirm-password">Confirm Password</Label>
-                <Input
-                  id="signup-confirm-password"
-                  type="password"
-                  placeholder="Confirm your password"
-                  value={signUpData.confirmPassword}
-                  onChange={(e) => setSignUpData({ ...signUpData, confirmPassword: e.target.value })}
-                />
-              </div>
-              
-              <Button 
-                onClick={handleSignUp} 
-                className="w-full" 
-                disabled={loading}
-              >
-                {loading ? 'Creating Account...' : 'Sign Up'}
-              </Button>
-            </TabsContent>
-          </Tabs>
+            </>
+          )}
+
+          {!isSignUp && (
+            <div className="space-y-2">
+              <Label htmlFor="pin">Employee PIN</Label>
+              <Input
+                id="pin"
+                value={formData.pin}
+                onChange={(e) => setFormData(prev => ({ ...prev, pin: e.target.value }))}
+                placeholder="Enter your Employee PIN"
+              />
+            </div>
+          )}
+
+          <Button 
+            onClick={handleSubmit} 
+            disabled={loading}
+            className="w-full"
+          >
+            {loading ? "Loading..." : (isSignUp ? "Sign Up" : "Sign In")}
+          </Button>
+
+          <div className="text-center">
+            <Button
+              variant="link"
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-sm"
+            >
+              {isSignUp 
+                ? "Already have an account? Sign in" 
+                : "Don't have an account? Sign up"
+              }
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
